@@ -1,0 +1,26 @@
+name: Pre-Merge Check
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  pre-merge-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for Jira ticket link
+        run: |
+          pr_title=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                    "${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
+                    | jq -r '.title')
+          pr_body=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                   "${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
+                   | jq -r '.body')
+          if ! echo "$pr_title" "$pr_body" | grep -qiE 'https?:\/\/.*\/(browse|browse|browse|projects)\/[A-Z][A-Z0-9_]+-[0-9]+'; then
+            echo "Error: The pull request must have a Jira ticket link in its title or description."
+            exit 1
+          fi
