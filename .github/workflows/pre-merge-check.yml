@@ -13,6 +13,7 @@ jobs:
 
     steps:
       - name: Check for Jira ticket link
+        id: jira-check
         run: |
           pr_title=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                     "${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
@@ -20,7 +21,19 @@ jobs:
           pr_body=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                    "${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
                    | jq -r '.body')
-          if ! echo "$pr_title" "$pr_body" | grep -qiE 'https?:\/\/.*\/(browse|browse|browse|projects)\/[A-Z][A-Z0-9_]+-[0-9]+'; then
+          if ! (echo "$pr_title" | grep -qiE 'https?:\/\/.*\/(browse|projects)\/[A-Z][A-Z0-9_]+-[0-9]+' ||
+                echo "$pr_body" | grep -qiE 'https?:\/\/.*\/(browse|projects)\/[A-Z][A-Z0-9_]+-[0-9]+'); then
             echo "Error: The pull request must have a Jira ticket link in its title or description."
             exit 1
           fi
+
+      - name: Set check status
+        if: steps.jira-check.outcome == 'success'
+        run: echo "Jira link check passed."
+        
+      - name: Set check failure
+        if: steps.jira-check.outcome != 'success'
+        run: |
+          echo "Jira link check failed."
+          echo "::error::The pull request must have a Jira ticket link in its title or description."
+          exit 1
